@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPC :: DEFAULT VALUE CONFIGURATOR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d10;
+    --panel:#111519;
+    --panel-2:#161b20;
+    --line:#232a31;
+    --line-bright:#333d47;
+    --amber:#ff9e2c;
+    --amber-dim:#7a5220;
+    --cyan:#4fd8e8;
+    --cyan-dim:#245a61;
+    --magenta:#e85fb0;
+    --magenta-dim:#6a2a50;
+    --green:#5cd68c;
+    --green-dim:#245a3d;
+    --text:#d7dde3;
+    --text-dim:#7c8892;
+    --text-faint:#4a535c;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    background:var(--bg); color:var(--text); font-family:var(--sans);
+    min-height:100vh;
+  }
+  body{
+    background-image:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    background-size:24px 24px;
+  }
+  ::selection{ background:var(--amber); color:#0a0d10; }
+  a{ color:inherit; }
+
+  /* ---------- scanline header ---------- */
+  .topbar{
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg, #0d1013, #0a0d10);
+    padding:14px 28px;
+    display:flex; align-items:center; justify-content:space-between;
+    position:sticky; top:0; z-index:50;
+    backdrop-filter:blur(6px);
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand .dot{
+    width:9px; height:9px; border-radius:50%; background:var(--amber);
+    box-shadow:0 0 8px 2px rgba(255,158,44,0.6);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .brand h1{
+    font-family:var(--mono); font-size:14px; letter-spacing:.18em;
+    font-weight:700; color:var(--text);
+  }
+  .brand h1 span{ color:var(--amber); }
+  .brand .sub{ font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:.1em; margin-top:2px;}
+  .sig-badge{
+    font-family:var(--mono); font-size:11px; color:var(--cyan);
+    border:1px solid var(--cyan-dim); background:rgba(79,216,232,0.05);
+    padding:6px 12px; border-radius:3px; letter-spacing:.08em;
+    display:flex; align-items:center; gap:8px;
+  }
+  .sig-badge b{ color:var(--text); font-weight:600; }
+
+  /* ---------- layout ---------- */
+  .wrap{ max-width:1180px; margin:0 auto; padding:32px 28px 100px; }
+  .intro{ margin-bottom:28px; }
+  .intro .eyebrow{
+    font-family:var(--mono); font-size:11px; color:var(--amber);
+    letter-spacing:.16em; margin-bottom:8px; text-transform:uppercase;
+  }
+  .intro h2{ font-size:22px; font-weight:600; color:var(--text); margin-bottom:6px; }
+  .intro p{ font-size:13.5px; color:var(--text-dim); max-width:640px; line-height:1.6; }
+
+  .stage{
+    display:grid; grid-template-columns: 1fr; gap:20px;
+  }
+  .stage.has-data{ grid-template-columns: 380px 1fr; }
+  @media (max-width: 920px){
+    .stage.has-data{ grid-template-columns: 1fr; }
+  }
+
+  /* ---------- panel ---------- */
+  .panel{
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:6px; overflow:hidden;
+  }
+  .panel-head{
+    padding:12px 16px; border-bottom:1px solid var(--line);
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel-2);
+  }
+  .panel-head h3{
+    font-family:var(--mono); font-size:11px; letter-spacing:.12em;
+    color:var(--text-dim); text-transform:uppercase; font-weight:600;
+  }
+  .panel-body{ padding:16px; }
+
+  /* ---------- input stage ---------- */
+  .drop{
+    position:relative;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; min-height:148px;
+    border:1.5px dashed var(--line-bright); border-radius:6px;
+    padding:22px 18px; text-align:center; cursor:pointer;
+    transition:border-color .15s, background .15s, box-shadow .15s;
+  }
+  .drop:hover, .drop.drag{ border-color:var(--amber); background:rgba(255,158,44,0.04); }
+  .drop:focus-within{
+    border-color:var(--cyan); box-shadow:0 0 0 3px rgba(79,216,232,0.15);
+  }
+  .drop .drop-icon{
+    color:var(--text-faint); margin-bottom:6px; transition:color .15s, transform .15s;
+  }
+  .drop:hover .drop-icon, .drop.drag .drop-icon{ color:var(--amber); transform:translateY(-2px); }
+  .drop .drop-primary{
+    font-family:var(--mono); font-size:12px; color:var(--text-dim); line-height:1.5;
+  }
+  .drop .drop-primary b{ color:var(--amber); font-weight:700; }
+  .drop .drop-secondary{
+    font-family:var(--mono); font-size:9.5px; color:var(--text-faint);
+    letter-spacing:.05em; margin-top:2px;
+  }
+  .drop.has-file{ border-style:solid; border-color:var(--green-dim); background:rgba(92,214,140,0.05); }
+  .drop.has-file .drop-icon{ color:var(--green); }
+  .drop.has-file .drop-primary{ color:var(--green); font-size:12.5px; }
+  .drop.has-file .drop-primary b{ color:var(--green); }
+  /* input stays in the tab order (not display:none) so keyboard users can
+     reach and activate it — visually hidden instead of removed */
+  .drop input[type=file]{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  .or-row{ display:flex; align-items:center; gap:10px; margin:16px 0; }
+  .or-row .ln{ flex:1; height:1px; background:var(--line); }
+  .or-row span{ font-family:var(--mono); font-size:10px; color:var(--text-faint); letter-spacing:.1em; }
+
+  textarea.paste{
+    width:100%; min-height:140px; background:var(--bg); color:var(--text);
+    border:1px solid var(--line); border-radius:4px; padding:10px;
+    font-family:var(--mono); font-size:11px; line-height:1.5; resize:vertical;
+  }
+  textarea.paste:focus{ outline:none; border-color:var(--cyan-dim); }
+
+  .btn{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.05em;
+    padding:10px 16px; border-radius:4px; border:1px solid var(--line-bright);
+    background:var(--panel-2); color:var(--text); cursor:pointer;
+    display:inline-flex; align-items:center; gap:8px; font-weight:600;
+    transition:all .12s;
+  }
+  .btn:hover{ border-color:var(--text-dim); }
+  .btn.primary{ background:var(--amber); color:#171008; border-color:var(--amber); }
+  .btn.primary:hover{ background:#ffb559; }
+  .btn.ghost{ background:transparent; }
+  .btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .btn-row{ display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+
+  /* ---------- controls stage ---------- */
+  .empty-state{
+    padding:80px 20px; text-align:center; color:var(--text-faint);
+    font-family:var(--mono); font-size:12px; letter-spacing:.05em;
+  }
+  .empty-state .big{ font-size:34px; margin-bottom:14px; opacity:.5;}
+
+  .section{ border-bottom:1px solid var(--line); }
+  .section:last-child{ border-bottom:none; }
+  .section-head{
+    padding:12px 16px; display:flex; align-items:center; gap:10px;
+    background:var(--panel-2); cursor:pointer; user-select:none;
+  }
+  .section-head .chip{
+    width:6px; height:16px; border-radius:2px; flex-shrink:0;
+  }
+  .section-head h4{
+    font-family:var(--mono); font-size:11.5px; letter-spacing:.1em;
+    text-transform:uppercase; font-weight:700; flex:1;
+  }
+  .section-head .count{
+    font-family:var(--mono); font-size:10px; color:var(--text-faint);
+    border:1px solid var(--line-bright); border-radius:10px; padding:2px 8px;
+  }
+  .section-head .arrow{ color:var(--text-faint); font-size:10px; transition:transform .15s; }
+  .section.collapsed .arrow{ transform:rotate(-90deg); }
+  .section.collapsed .section-rows{ display:none; }
+
+  .section-rows{ padding:6px 16px 14px; }
+  .row{
+    display:grid; grid-template-columns: 190px 1fr 92px; gap:14px;
+    align-items:center; padding:11px 0; border-bottom:1px solid rgba(255,255,255,0.03);
+  }
+  .row:last-child{ border-bottom:none; }
+  .row-label{ font-family:var(--mono); font-size:12px; color:var(--text); }
+  .row-label .var{ display:block; font-size:9.5px; color:var(--text-faint); margin-top:2px; letter-spacing:.03em; }
+  .row-label .badge{
+    display:inline-block; font-size:8.5px; margin-left:6px; padding:1px 5px;
+    border-radius:3px; letter-spacing:.05em; font-weight:700; vertical-align:1px;
+  }
+  .badge.changed{ background:rgba(255,158,44,0.15); color:var(--amber); border:1px solid var(--amber-dim); }
+
+  .slider-wrap{ display:flex; align-items:center; gap:10px; }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:4px;
+    background:var(--line-bright); border-radius:2px; outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--cyan); cursor:pointer; border:2px solid #0a0d10;
+    box-shadow:0 0 0 1px var(--cyan);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:var(--cyan);
+    cursor:pointer; border:2px solid #0a0d10; box-shadow:0 0 0 1px var(--cyan);
+  }
+  .minmax{ font-family:var(--mono); font-size:9px; color:var(--text-faint); white-space:nowrap; }
+
+  .num-input{
+    width:100%; background:var(--bg); border:1px solid var(--line-bright);
+    color:var(--text); font-family:var(--mono); font-size:12px; font-weight:600;
+    text-align:center; padding:6px 4px; border-radius:4px;
+  }
+  .num-input:focus{ outline:none; border-color:var(--cyan); }
+
+  /* ---------- output ---------- */
+  .output-actions{
+    display:flex; gap:10px; padding:14px 16px; border-top:1px solid var(--line);
+    background:var(--panel-2); flex-wrap:wrap; align-items:center;
+  }
+  .change-count{
+    font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-right:auto;
+  }
+  .change-count b{ color:var(--amber); }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--panel-2); border:1px solid var(--green-dim); color:var(--green);
+    font-family:var(--mono); font-size:12px; padding:10px 18px; border-radius:5px;
+    opacity:0; pointer-events:none; transition:all .2s; z-index:100;
+    display:flex; align-items:center; gap:8px;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  footer{
+    text-align:center; padding:30px; font-family:var(--mono); font-size:10px;
+    color:var(--text-faint); letter-spacing:.08em;
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div>
+        <h1>GPC<span>://</span>DEFAULT&nbsp;VALUE&nbsp;CONFIGURATOR</h1>
+        <div class="sub">TITAN&nbsp;TWO&nbsp;/&nbsp;CRONUS&nbsp;·&nbsp;SPVAR&nbsp;DEFAULTS&nbsp;EDITOR</div>
+      </div>
+    </div>
+    <div class="sig-badge">SIG <b id="sigHex">····</b></div>
+  </div>
+
+  <div class="wrap">
+    <div class="intro">
+      <div class="eyebrow">// 01 · load a script</div>
+      <h2>Rewrite your GPC's default values, safely.</h2>
+      <p>Paste or upload a <code>.gpc</code> file. Every <code>get_pvar(SPVAR_N, min, max, default)</code> call is detected automatically and turned into a slider — so you can change what a fresh install boots up with, without touching a single line of code by hand.</p>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="panel" id="inputPanel">
+        <div class="panel-head"><h3>Source File</h3></div>
+        <div class="panel-body">
+          <label class="drop" id="dropZone">
+            <svg class="drop-icon" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0-12l-4 4m4-4l4 4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+            <div class="drop-primary" id="dropPrimary"><b>Click to upload</b> or drag a .gpc file here</div>
+            <div class="drop-secondary" id="dropSecondary">.gpc or .txt · parsed entirely in your browser</div>
+            <input type="file" id="fileInput" accept=".gpc,.txt">
+          </label>
+
+          <div class="or-row"><div class="ln"></div><span>OR PASTE RAW TEXT</span><div class="ln"></div></div>
+          <textarea class="paste" id="pasteArea" placeholder="Paste your .gpc script contents here..."></textarea>
+
+          <div class="btn-row">
+            <button class="btn primary" id="parseBtn">Parse Script →</button>
+            <button class="btn ghost" id="clearBtn">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="controlsPanel" style="display:none;">
+        <div class="panel-head">
+          <h3>Detected Defaults</h3>
+          <span class="count" id="varCount" style="font-family:var(--mono);font-size:10px;color:var(--text-faint);border:1px solid var(--line-bright);border-radius:10px;padding:2px 8px;"></span>
+        </div>
+        <div id="sectionsHost"></div>
+        <div class="output-actions">
+          <div class="change-count" id="changeCount">0 values changed</div>
+          <button class="btn ghost" id="resetBtn">Reset to Loaded</button>
+          <button class="btn ghost" id="copyBtn">Copy Modified Script</button>
+          <button class="btn primary" id="downloadBtn">⬇ Download .gpc</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="emptyPanel" style="margin-top:20px;">
+      <div class="empty-state">
+        <div class="big">◇</div>
+        Load a script above to see its adjustable defaults here.
+      </div>
+    </div>
+  </div>
+
+  <footer>NO DATA LEAVES YOUR BROWSER — PARSING RUNS ENTIRELY CLIENT-SIDE</footer>
+  <div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- friendly name / grouping map ----------
+  // Keys are variable names as they appear in "VAR = get_pvar(...)".
+  // Unmatched variables fall back to a generic "OTHER" section with a
+  // prettified auto-generated label, so this tool still works on scripts
+  // with variables not listed here.
+  const KNOWN = {
+    c_aae:  { label:"AIM ENGINE",     group:"QUANTUM AIM", hint:"0 QUANTUM · 1 NEURAL · 2 VORTEX · 3 PULSE · 4 OFF" },
+    c_aar:  { label:"AA RADIUS",      group:"QUANTUM AIM" },
+    c_aas:  { label:"AA SPEED",       group:"QUANTUM AIM" },
+    c_aah:  { label:"AA HEAD-Y",      group:"QUANTUM AIM" },
+    c_arv:  { label:"V-LOCK",         group:"BALLISTICS" },
+    c_arh:  { label:"H-LOCK",         group:"BALLISTICS" },
+    c_flw:  { label:"FLNCH KICK HANDLE", group:"BALLISTICS" },
+    c_stp:  { label:"STRAFE POWER",   group:"TACTICAL" },
+    c_stt:  { label:"STRAFE TIMER (ms)", group:"TACTICAL" },
+    c_rfh:  { label:"RAPID FIRE HOLD (ms)", group:"TACTICAL" },
+    c_rfr:  { label:"RAPID FIRE RELEASE (ms)", group:"TACTICAL" },
+    c_yyd:  { label:"JITTER DELAY (ms)", group:"TACTICAL" },
+    c_lay:  { label:"CONTROLLER LAYOUT", group:"SYSTEM", hint:"0–7 layout index" },
+    v_dz:   { label:"STICK DEADZONE", group:"SYSTEM" },
+    v_bls:  { label:"SETTINGS BITFIELD", group:"SYSTEM", hint:"packed toggles — edit with care" },
+    c_vms:  { label:"VM SPEED",       group:"SYSTEM" },
+    v_ast:  { label:"ANTI-STALL MODE", group:"SYSTEM" },
+  };
+
+  const GROUP_ORDER = ["QUANTUM AIM","BALLISTICS","TACTICAL","SYSTEM","OTHER"];
+  const GROUP_COLOR = {
+    "QUANTUM AIM":"var(--cyan)",
+    "BALLISTICS":"var(--amber)",
+    "TACTICAL":"var(--magenta)",
+    "SYSTEM":"var(--green)",
+    "OTHER":"var(--text-dim)"
+  };
+
+  // ---------- state ----------
+  let rawText = "";
+  let matches = [];   // {varName, spvar, min, max, orig, current, index, fullMatch, defaultStart, defaultEnd}
+
+  // ---------- regex parse ----------
+  // Matches:  varName = get_pvar ( SPVAR_N , min , max , default )
+  const RE = /([A-Za-z_]\w*)\s*=\s*get_pvar\s*\(\s*(SPVAR_\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/g;
+
+  function parseScript(text){
+    matches = [];
+    RE.lastIndex = 0;
+    let m;
+    while((m = RE.exec(text)) !== null){
+      const varName = m[1];
+      const spvar = m[2];
+      const min = parseInt(m[3],10);
+      const max = parseInt(m[4],10);
+      const def = parseInt(m[5],10);
+      // locate exact char offset of the default number so we can
+      // do precise in-place replacement later without touching min/max
+      const fullMatch = m[0];
+      const lastCommaIdx = fullMatch.lastIndexOf(',');
+      const defaultStartInMatch = lastCommaIdx + 1;
+      const defaultTextRaw = fullMatch.slice(defaultStartInMatch, fullMatch.lastIndexOf(')'));
+      const leadingWs = defaultTextRaw.match(/^\s*/)[0].length;
+      const defaultStart = m.index + defaultStartInMatch + leadingWs;
+      const defaultEnd = defaultStart + String(def).length;
+
+      matches.push({
+        varName, spvar, min, max, orig: def, current: def,
+        matchStart: m.index, matchEnd: m.index + fullMatch.length,
+        defaultStart, defaultEnd
+      });
+    }
+    return matches;
+  }
+
+  function prettify(varName){
+    return varName.replace(/^[a-z]_/,'').replace(/_/g,' ').toUpperCase();
+  }
+
+  function groupOf(varName){
+    return (KNOWN[varName] && KNOWN[varName].group) || "OTHER";
+  }
+  function labelOf(varName){
+    return (KNOWN[varName] && KNOWN[varName].label) || prettify(varName);
+  }
+  function hintOf(varName){
+    return (KNOWN[varName] && KNOWN[varName].hint) || "";
+  }
+
+  // ---------- render ----------
+  const sectionsHost = document.getElementById('sectionsHost');
+  const controlsPanel = document.getElementById('controlsPanel');
+  const emptyPanel = document.getElementById('emptyPanel');
+  const stage = document.getElementById('stage');
+  const varCountEl = document.getElementById('varCount');
+  const changeCountEl = document.getElementById('changeCount');
+  const sigHex = document.getElementById('sigHex');
+
+  function computeSig(){
+    let sum = 0;
+    matches.forEach((m,i) => { sum = (sum * 31 + m.current * (i+7)) >>> 0; });
+    return sum.toString(16).toUpperCase().padStart(8,'0').slice(0,8);
+  }
+
+  function updateChangeCount(){
+    const changed = matches.filter(m => m.current !== m.orig).length;
+    changeCountEl.innerHTML = changed === 0
+      ? '0 values changed'
+      : '<b>' + changed + '</b> value' + (changed===1?'':'s') + ' changed from loaded defaults';
+    sigHex.textContent = computeSig();
+  }
+
+  function render(){
+    sectionsHost.innerHTML = "";
+    const byGroup = {};
+    matches.forEach(m => {
+      const g = groupOf(m.varName);
+      (byGroup[g] = byGroup[g] || []).push(m);
+    });
+
+    GROUP_ORDER.forEach(group => {
+      if(!byGroup[group]) return;
+      const section = document.createElement('div');
+      section.className = 'section';
+
+      const head = document.createElement('div');
+      head.className = 'section-head';
+      head.innerHTML =
+        '<span class="chip" style="background:'+GROUP_COLOR[group]+'"></span>' +
+        '<h4>'+group+'</h4>' +
+        '<span class="count">'+byGroup[group].length+'</span>' +
+        '<span class="arrow">▼</span>';
+      head.addEventListener('click', () => section.classList.toggle('collapsed'));
+      section.appendChild(head);
+
+      const rows = document.createElement('div');
+      rows.className = 'section-rows';
+
+      byGroup[group].forEach(m => {
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        const hint = hintOf(m.varName);
+        row.innerHTML =
+          '<div class="row-label">'+labelOf(m.varName)+
+            '<span class="badge changed" style="display:none;">MOD</span>'+
+            '<span class="var">'+m.varName+' · '+m.spvar+(hint ? ' · '+hint : '')+'</span>'+
+          '</div>'+
+          '<div class="slider-wrap">'+
+            '<span class="minmax">'+m.min+'</span>'+
+            '<input type="range" min="'+m.min+'" max="'+m.max+'" value="'+m.current+'" step="1">'+
+            '<span class="minmax">'+m.max+'</span>'+
+          '</div>'+
+          '<input type="number" class="num-input" min="'+m.min+'" max="'+m.max+'" value="'+m.current+'">';
+
+        const slider = row.querySelector('input[type=range]');
+        const num = row.querySelector('input[type=number]');
+        const badge = row.querySelector('.badge');
+
+        function sync(newVal){
+          newVal = Math.max(m.min, Math.min(m.max, newVal));
+          m.current = newVal;
+          slider.value = newVal;
+          num.value = newVal;
+          badge.style.display = (newVal !== m.orig) ? 'inline-block' : 'none';
+          updateChangeCount();
+        }
+
+        slider.addEventListener('input', () => sync(parseInt(slider.value,10)));
+        num.addEventListener('change', () => sync(parseInt(num.value,10) || m.orig));
+
+        rows.appendChild(row);
+      });
+
+      section.appendChild(rows);
+      sectionsHost.appendChild(section);
+    });
+
+    varCountEl.textContent = matches.length + ' FOUND';
+    controlsPanel.style.display = 'block';
+    emptyPanel.style.display = 'none';
+    stage.classList.add('has-data');
+    updateChangeCount();
+  }
+
+  // ---------- generate modified script ----------
+  function buildOutput(){
+    // Replace defaults back-to-front so earlier char offsets stay valid
+    let out = rawText;
+    const sorted = [...matches].sort((a,b) => b.defaultStart - a.defaultStart);
+    sorted.forEach(m => {
+      out = out.slice(0, m.defaultStart) + String(m.current) + out.slice(m.defaultEnd);
+    });
+    return out;
+  }
+
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast._h);
+    toast._h = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ---------- file handling ----------
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const pasteArea = document.getElementById('pasteArea');
+  const dropPrimary = document.getElementById('dropPrimary');
+  const dropSecondary = document.getElementById('dropSecondary');
+  let loadedFilename = "modified.gpc";
+
+  function loadText(text, filename){
+    pasteArea.value = text;
+    if(filename){
+      loadedFilename = filename;
+      dropZone.classList.add('has-file');
+      dropPrimary.innerHTML = '<b>✓ ' + filename + '</b>';
+      dropSecondary.textContent = text.length.toLocaleString() + ' characters · click to replace';
+    }
+  }
+
+  fileInput.addEventListener('change', (e) => {
+    const f = e.target.files[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => loadText(ev.target.result, f.name);
+    reader.readAsText(f);
+  });
+
+  ['dragover','dragleave','drop'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      if(evt === 'dragover') dropZone.classList.add('drag');
+      if(evt === 'dragleave') dropZone.classList.remove('drag');
+      if(evt === 'drop'){
+        dropZone.classList.remove('drag');
+        const f = e.dataTransfer.files[0];
+        if(f){
+          const reader = new FileReader();
+          reader.onload = (ev) => loadText(ev.target.result, f.name);
+          reader.readAsText(f);
+        }
+      }
+    });
+  });
+
+  document.getElementById('parseBtn').addEventListener('click', () => {
+    const text = pasteArea.value;
+    if(!text.trim()){
+      toast('⚠ Paste or upload a script first');
+      return;
+    }
+    rawText = text;
+    const found = parseScript(text);
+    if(found.length === 0){
+      toast('⚠ No get_pvar(...) defaults found');
+      return;
+    }
+    render();
+    toast('✓ Parsed ' + found.length + ' default values');
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    pasteArea.value = "";
+    dropZone.classList.remove('has-file');
+    dropPrimary.innerHTML = '<b>Click to upload</b> or drag a .gpc file here';
+    dropSecondary.textContent = '.gpc or .txt · parsed entirely in your browser';
+    fileInput.value = "";
+    matches = [];
+    rawText = "";
+    controlsPanel.style.display = 'none';
+    emptyPanel.style.display = 'block';
+    stage.classList.remove('has-data');
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    matches.forEach(m => m.current = m.orig);
+    render();
+    toast('↺ Reset to loaded defaults');
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', () => {
+    const out = buildOutput();
+    navigator.clipboard.writeText(out).then(() => toast('✓ Copied modified script to clipboard'));
+  });
+
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    const out = buildOutput();
+    const blob = new Blob([out], {type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const base = loadedFilename.replace(/\.gpc$/i,'');
+    a.download = base + '_modified.gpc';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('⬇ Downloaded ' + a.download);
+  });
+
+})();
+</script>
+</body>
+</html>
